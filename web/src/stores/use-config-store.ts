@@ -1,10 +1,12 @@
 import { useMemo } from "react";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
 
 import { AI_BASE_URL } from "@/constant/runtime-config";
 import i18n from "@/i18n";
+import { getCurrentUserId, USER_SCOPE_CHANGED_EVENT, userScopedStorage } from "@/lib/user-scope";
+import { saveUserSettings } from "@/services/user-settings";
 
 export type ApiCallFormat = "openai" | "gemini";
 export type ModelCapability = "image" | "video" | "text" | "audio";
@@ -146,6 +148,17 @@ type ConfigStore = {
 };
 
 const VIDEO_KEYWORDS = ["video", "sora", "veo", "kling", "wan", "hailuo"];
+let settingsSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function queueUserSettingsSave() {
+    if (getCurrentUserId() === "anonymous") return;
+    if (settingsSaveTimer) clearTimeout(settingsSaveTimer);
+    settingsSaveTimer = setTimeout(() => {
+        settingsSaveTimer = null;
+        const { config, webdav } = useConfigStore.getState();
+        void saveUserSettings({ config, webdav }).catch(() => undefined);
+    }, 500);
+}
 
 export function boolConfig(value: string, fallback: boolean) {
     return value ? value === "true" : fallback;
@@ -210,26 +223,33 @@ export const useConfigStore = create<ConfigStore>()(
             isConfigOpen: false,
             configTab: "channels",
             shouldPromptContinue: false,
-            updateConfig: (key, value) =>
+            updateConfig: (key, value) => {
                 set((state) => ({
                     config: {
                         ...state.config,
                         [key]: value,
                     },
-                })),
+                }));
+                queueUserSettingsSave();
+            },
             importChannelCredentials: (input) => {
                 const currentConfig = get().config;
                 const result = upsertChannelCredentials(currentConfig, input);
-                if (result.config !== currentConfig) set({ config: result.config });
+                if (result.config !== currentConfig) {
+                    set({ config: result.config });
+                    queueUserSettingsSave();
+                }
                 return { status: result.status, channelName: result.channelName };
             },
-            updateWebdavConfig: (key, value) =>
+            updateWebdavConfig: (key, value) => {
                 set((state) => ({
                     webdav: {
                         ...state.webdav,
                         [key]: value,
                     },
-                })),
+                }));
+                queueUserSettingsSave();
+            },
             isAiConfigReady: (config, model) => isAiConfigReady(config, model),
             openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => set({ isConfigOpen: true, shouldPromptContinue, configTab }),
             setConfigDialogOpen: (isConfigOpen) => set({ isConfigOpen }),
@@ -237,6 +257,7 @@ export const useConfigStore = create<ConfigStore>()(
         }),
         {
             name: CONFIG_STORE_KEY,
+            storage: createJSONStorage(() => userScopedStorage),
             partialize: (state) => ({ config: state.config, webdav: state.webdav }),
             merge: (persisted, current) => {
                 const persistedState = (persisted || {}) as Partial<ConfigStore>;
@@ -279,6 +300,13 @@ export const useConfigStore = create<ConfigStore>()(
         },
     ),
 );
+
+if (typeof window !== "undefined") {
+    window.addEventListener(USER_SCOPE_CHANGED_EVENT, () => {
+        useConfigStore.setState({ config: defaultConfig, webdav: defaultWebdavSyncConfig });
+        void useConfigStore.persist.rehydrate();
+    });
+}
 
 export function useEffectiveConfig() {
     const config = useConfigStore((state) => state.config);
@@ -457,6 +485,8 @@ export function buildApiUrl(baseUrl: string, path: string) {
     const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, "");
     const lowerBaseUrl = normalizedBaseUrl.toLowerCase();
     const apiBaseUrl = lowerBaseUrl.endsWith("/v1") ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`;
+    // Browser deployments use the same-origin API proxy so the upstream key and CORS policy stay server-controlled.
+    if (typeof window !== "undefined") return `/api/ai${new URL(`${apiBaseUrl}${path}`, `${window.location.origin}/`).pathname}${new URL(`${apiBaseUrl}${path}`, `${window.location.origin}/`).search}`;
     return withLocalProxy(`${apiBaseUrl}${path}`);
 }
 
@@ -469,6 +499,11 @@ export function normalizeLocalProxyUrl(value: string) {
 /** Prefix an outgoing request with the local forwarding proxy so the browser is not blocked by CORS. */
 export function withLocalProxy(url: string) {
     const { proxyEnabled, proxyUrl } = useConfigStore.getState().config;
+    if (typeof window !== "undefined") {
+        const target = new URL(url);
+        const fixed = new URL(AI_BASE_URL);
+        if (target.origin === fixed.origin) return `/api/ai${target.pathname}${target.search}`;
+    }
     if (!proxyEnabled || !/^https?:\/\//i.test(url)) return url;
     const base = normalizeLocalProxyUrl(proxyUrl);
     if (!base || url.startsWith(`${base}/`)) return url;

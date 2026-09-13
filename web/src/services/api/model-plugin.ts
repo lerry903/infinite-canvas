@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from "axios";
 
+import { AI_BASE_URL } from "@/constant/runtime-config";
 import i18n from "@/i18n";
 import { buildApiUrl, withLocalProxy, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 
@@ -40,7 +41,11 @@ function pluginHeaders(extra?: Record<string, string>, hasJsonBody = false): Rec
 }
 
 function pluginUrl(config: AiConfig, path: string) {
-    if (/^https?:/i.test(path)) return withLocalProxy(path);
+    if (/^https?:/i.test(path)) {
+        const upstream = new URL(path);
+        if (typeof window !== "undefined" && upstream.origin === new URL(AI_BASE_URL).origin) return `/api/ai${upstream.pathname}${upstream.search}`;
+        throw new Error("仅允许请求部署配置的 AI 服务地址");
+    }
     return buildApiUrl(config.baseUrl, path.startsWith("/") ? path : `/${path}`);
 }
 

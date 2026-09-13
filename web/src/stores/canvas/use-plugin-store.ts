@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { localForageStorage } from "@/lib/localforage-storage";
+import { USER_SCOPE_CHANGED_EVENT, userScopedStorage } from "@/lib/user-scope";
 
 export type InstalledPlugin = {
     id: string;
@@ -39,7 +39,14 @@ export const usePluginStore = create<PluginStore>()(
         }),
         {
             name: "infinite-canvas:plugin_store",
-            storage: createJSONStorage(() => localForageStorage),
+            storage: createJSONStorage(() => userScopedStorage),
         },
     ),
 );
+
+if (typeof window !== "undefined") {
+    window.addEventListener(USER_SCOPE_CHANGED_EVENT, () => {
+        usePluginStore.setState({ plugins: [] });
+        void usePluginStore.persist.rehydrate();
+    });
+}

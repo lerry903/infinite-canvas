@@ -121,6 +121,14 @@ docker compose up -d
 
 运行后默认端口3000，可访问 `http://localhost:3000`。
 
+多人部署使用当前源码构建前端和用户配置 API：
+
+```bash
+docker compose -f docker-compose.local.yml up -d --build
+```
+
+用户需要先登录；每个用户的渠道、API Key 和偏好独立保存，AI 请求由服务端转发到部署固定的 `https://api.smartxai.cn`。
+
 首次打开后进入右上角配置，填入自己的 OpenAI 兼容 `Base URL` 和 `API Key`。
 
 如果默认的OpenAI接口调用方式与您的API不同，可自定义生图/视频脚本调用。

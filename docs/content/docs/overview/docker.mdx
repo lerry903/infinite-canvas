@@ -37,7 +37,7 @@ cd docs
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-The main application container only runs Next.js. Canvases, My Assets, generation history, and API keys are stored in the browser by default, while prompt repositories are fetched directly by the frontend. No persistent data volume is required for this data.
+Compose starts the frontend and API service together. Accounts, settings, and channel keys are stored in the `app-data` volume. Build the complete deployment with `docker compose up -d --build`. To change the host port, change the left side of `ports` (for example `8080:3000`) and run the command again.
 
 ## AI service endpoint
 

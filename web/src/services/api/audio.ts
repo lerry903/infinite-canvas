@@ -14,8 +14,10 @@ function aiApiUrl(config: AiConfig, path: string) {
 }
 
 function aiHeaders(config: AiConfig) {
+    const channelId = config.channels.find((channel) => channel.apiKey === config.apiKey)?.id;
     return {
         Authorization: `Bearer ${config.apiKey}`,
+        ...(channelId ? { "x-channel-id": channelId } : {}),
         "Content-Type": "application/json",
     };
 }

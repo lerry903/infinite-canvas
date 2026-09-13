@@ -49,7 +49,7 @@ docker compose -f docker-compose.local.yml up -d --build
 
 ## 数据说明
 
-当前主应用镜像只启动 Next.js。画布、我的素材、生成记录和 AI API Key 默认保存在浏览器本地；第三方提示词由浏览器前端直连拉取，不需要额外挂载数据目录。
+Compose 会同时启动前端和 API 服务，用户账号、设置和渠道密钥保存在 `app-data` 卷中。完整构建使用 `docker compose up -d --build`。如需更换宿主机端口，将 `ports` 左侧改为例如 `8080:3000` 后重新执行命令。
 
 ## AI 服务地址
 

@@ -1,4 +1,14 @@
 services:
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8787
+      DB_PATH: /data/app.sqlite
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
   app:
     image: infinite-canvas:local
     build:
@@ -6,6 +16,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    depends_on:
+      - api
     environment:
       AI_BASE_URL: https://api.smartxai.cn
-    restart: unless-stopped
+volumes:
+  app-data:

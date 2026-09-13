@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 import { DEFAULT_PROMPT_SOURCES, createPromptSource, type PromptSource } from "@/services/api/prompt-source-presets";
+import { USER_SCOPE_CHANGED_EVENT, userScopedStorage } from "@/lib/user-scope";
 
 export type PromptSourceSchedule = {
     intervalMinutes: number;
@@ -45,6 +46,7 @@ export const usePromptSourceStore = create<PromptSourceStore>()(
         }),
         {
             name: PROMPT_SOURCE_STORE_KEY,
+            storage: createJSONStorage(() => userScopedStorage),
             partialize: (state) => ({ sources: state.sources, schedule: state.schedule }),
             merge: (persisted, current) => {
                 const persistedState = (persisted || {}) as Partial<PromptSourceStore>;
@@ -57,3 +59,10 @@ export const usePromptSourceStore = create<PromptSourceStore>()(
         },
     ),
 );
+
+if (typeof window !== "undefined") {
+    window.addEventListener(USER_SCOPE_CHANGED_EVENT, () => {
+        usePromptSourceStore.setState({ sources: DEFAULT_PROMPT_SOURCES, schedule: defaultSchedule });
+        void usePromptSourceStore.persist.rehydrate();
+    });
+}

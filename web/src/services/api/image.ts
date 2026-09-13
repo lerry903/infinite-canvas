@@ -345,8 +345,10 @@ function aiApiUrl(config: AiConfig, path: string) {
 }
 
 function aiHeaders(config: AiConfig, contentType?: string) {
+    const channelId = config.channels.find((channel) => channel.apiKey === config.apiKey)?.id;
     return {
         Authorization: `Bearer ${config.apiKey}`,
+        ...(channelId ? { "x-channel-id": channelId } : {}),
         ...(contentType ? { "Content-Type": contentType } : {}),
     };
 }
@@ -354,7 +356,9 @@ function aiHeaders(config: AiConfig, contentType?: string) {
 function geminiBaseUrl(config: Pick<AiConfig, "baseUrl">) {
     const normalizedBaseUrl = config.baseUrl.trim().replace(/\/+$/, "");
     const lowerBaseUrl = normalizedBaseUrl.toLowerCase();
-    return lowerBaseUrl.endsWith("/v1") || lowerBaseUrl.endsWith("/v1beta") ? normalizedBaseUrl : `${normalizedBaseUrl}/v1beta`;
+    const result = lowerBaseUrl.endsWith("/v1") || lowerBaseUrl.endsWith("/v1beta") ? normalizedBaseUrl : `${normalizedBaseUrl}/v1beta`;
+    if (typeof window !== "undefined") return `/api/ai${new URL(result, `${window.location.origin}/`).pathname}`;
+    return result;
 }
 
 function geminiModelName(model: string) {
@@ -367,9 +371,11 @@ function geminiApiUrl(config: Pick<AiConfig, "baseUrl" | "model">, action?: "gen
     return withLocalProxy(`${baseUrl}/models/${encodeURIComponent(geminiModelName(config.model))}:${action}`);
 }
 
-function geminiHeaders(config: Pick<AiConfig, "apiKey">) {
+function geminiHeaders(config: Pick<AiConfig, "apiKey"> & Partial<Pick<AiConfig, "channels">>) {
+    const channelId = config.channels?.find((channel) => channel.apiKey === config.apiKey)?.id;
     return {
         "x-goog-api-key": config.apiKey,
+        ...(channelId ? { "x-channel-id": channelId } : {}),
         "Content-Type": "application/json",
     };
 }

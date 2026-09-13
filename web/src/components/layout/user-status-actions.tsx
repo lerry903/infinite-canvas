@@ -1,17 +1,18 @@
 import type { CSSProperties } from "react";
-import { Tooltip } from "antd";
-import { BookOpen, Keyboard, Puzzle, Settings2 } from "lucide-react";
+import { App, Input, Modal, Tooltip } from "antd";
+import { BookOpen, Keyboard, LogIn, LogOut, Puzzle, Settings2 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
-import { GitHubLink } from "@/components/layout/github-link";
 import { VersionReleaseModal } from "@/components/layout/version-release-modal";
 import { DOCS_URL } from "@/constant/env";
 import { changeAppLocale, type AppLocale } from "@/i18n";
-import { cn } from "@/lib/utils";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { authenticate, logout } from "@/services/auth";
+import { useUserStore } from "@/stores/use-user-store";
 
 type UserStatusActionsProps = {
     showConfig?: boolean;
@@ -26,17 +27,32 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     const setTheme = useThemeStore((state) => state.setTheme);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
     const canvasTheme = canvasThemes[theme];
+    const { message } = App.useApp();
+    const user = useUserStore((state) => state.user);
+    const setUser = useUserStore((state) => state.setUser);
+    const hydrateUser = useUserStore((state) => state.hydrate);
+    const clearSession = useUserStore((state) => state.clearSession);
+    const [authOpen, setAuthOpen] = useState(false);
+    const [register, setRegister] = useState(false);
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [displayName, setDisplayName] = useState("");
+    const submitAuth = async () => {
+        try { setUser(await authenticate(register ? "register" : "login", username, password, displayName)); await hydrateUser(); setAuthOpen(false); setPassword(""); message.success("登录成功"); }
+        catch (error) { message.error(error instanceof Error ? error.message : "操作失败"); }
+    };
     const naturalIconClass = "inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-stone-600 transition-colors hover:bg-black/5 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-white/10 dark:hover:text-white [&_svg]:size-4";
     const iconStyle: CSSProperties | undefined = variant === "canvas" ? { color: canvasTheme.node.text } : undefined;
     const versionStyle = iconStyle;
-    const gitHubClassName = "size-7 text-base";
-    const gitHubStyle = iconStyle;
     const locale = i18n.resolvedLanguage as AppLocale;
     const nextLocale = locale === "zh-CN" ? "en-US" : "zh-CN";
     const languageLabel = t("topNav.switchLanguage", { language: t(nextLocale === "zh-CN" ? "locale.zhCN" : "locale.enUS") });
 
     return (
         <div className="inline-flex shrink-0 items-center gap-1">
+            <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => user ? void logout().then(clearSession) : setAuthOpen(true)} aria-label={user ? "退出登录" : "登录"} title={user ? `${user.displayName} · 退出登录` : "登录 / 注册"}>
+                {user ? <LogOut className="size-4" /> : <LogIn className="size-4" />}
+            </button>
             {onOpenPlugins ? (
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenPlugins} aria-label={t("topNav.plugins")} title={t("topNav.plugins")}>
                     <Puzzle className="size-4" />
@@ -57,12 +73,19 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
             </Tooltip>
             <AnimatedThemeToggler theme={theme} onThemeChange={setTheme} className={naturalIconClass} style={iconStyle} aria-label={t(theme === "dark" ? "topNav.lightTheme" : "topNav.darkTheme")} title={t(theme === "dark" ? "topNav.lightTheme" : "topNav.darkTheme")} />
             <VersionReleaseModal style={versionStyle} />
-            <GitHubLink className={cn("bg-transparent hover:bg-transparent dark:hover:bg-transparent", gitHubClassName)} style={gitHubStyle} />
             {onOpenShortcuts ? (
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenShortcuts} aria-label={t("topNav.shortcuts")} title={t("topNav.shortcuts")}>
                     <Keyboard className="size-4" />
                 </button>
             ) : null}
+            <Modal open={authOpen} title={register ? "注册账号" : "登录账号"} okText={register ? "注册" : "登录"} cancelText="取消" onOk={() => void submitAuth()} onCancel={() => setAuthOpen(false)}>
+                <div className="space-y-3">
+                    <Input placeholder="用户名" value={username} onChange={(event) => setUsername(event.target.value)} />
+                    {register ? <Input placeholder="显示名称（可选）" value={displayName} onChange={(event) => setDisplayName(event.target.value)} /> : null}
+                    <Input.Password placeholder="密码（至少 8 位）" value={password} onChange={(event) => setPassword(event.target.value)} />
+                    <button type="button" className="text-xs text-blue-600" onClick={() => setRegister((value) => !value)}>{register ? "已有账号，去登录" : "没有账号，去注册"}</button>
+                </div>
+            </Modal>
         </div>
     );
 }

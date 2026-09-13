@@ -1,12 +1,30 @@
 services:
+  api:
+    image: infinite-canvas-api:local
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      PORT: 8787
+      DB_PATH: /data/app.sqlite
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
   app:
-    image: ghcr.io/basketikun/infinite-canvas:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: infinite-canvas:local
     container_name: infinite-canvas
     ports:
       - "3000:3000"
+    depends_on:
+      - api
     restart: unless-stopped
     environment:
       AI_BASE_URL: https://api.smartxai.cn
-    # 统计分析（可选，默认关闭）。每家一个独立变量，填了谁就启用谁，可同时启用多家：
-      # ANALYTICS_GA4_ID: G-XXXXXXXXXX                    # Google Analytics 4 衡量 ID
-      # ANALYTICS_BAIDU_ID: xxxxxxxxxxxxxxxxxxxxxxxxxxxx   # 百度统计站点 ID
+      # 统计分析（可选，默认关闭）。每家一个独立变量，填了谁就启用谁，可同时启用多家：
+      # ANALYTICS_GA4_ID: G-XXXXXXXXXX
+      # ANALYTICS_BAIDU_ID: xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+volumes:
+  app-data:
