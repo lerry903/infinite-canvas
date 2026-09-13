@@ -39,6 +39,15 @@ docker compose -f docker-compose.local.yml up -d --build
 
 The main application container only runs Next.js. Canvases, My Assets, generation history, and API keys are stored in the browser by default, while prompt repositories are fetched directly by the frontend. No persistent data volume is required for this data.
 
+## AI service endpoint
+
+The main application locks every provider endpoint through the runtime `AI_BASE_URL` variable. It defaults to `https://api.smartxai.cn` and is displayed as read-only in provider settings.
+
+```yaml
+environment:
+  AI_BASE_URL: https://api.smartxai.cn
+```
+
 ## Optional analytics
 
 No analytics are enabled by default. A deployment can enable GA4, Baidu Analytics, or both at runtime:
