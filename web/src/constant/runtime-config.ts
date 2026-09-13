@@ -2,10 +2,11 @@
 // Priority: window.__RUNTIME_CONFIG__ (injected by the container entrypoint) > build-time VITE_ variables > defaults.
 // This supports both configuring the same image with docker run -e and injecting values during custom builds.
 //
-// Each analytics provider has its own variable; configured providers are enabled independently and all are disabled by default.
-// Only GA4 and Baidu are supported. Both accept IDs only, and script URLs are assembled in code without arbitrary scripts or inline JavaScript.
+// The AI endpoint is fixed by deployment configuration, while analytics providers remain independently optional.
+// Analytics accepts IDs only, and script URLs are assembled in code without arbitrary scripts or inline JavaScript.
 
 type RuntimeConfig = {
+    AI_BASE_URL?: string;
     ANALYTICS_GA4_ID?: string; // GA4 measurement ID (G-XXXX)
     ANALYTICS_BAIDU_ID?: string; // Baidu Analytics site ID
 };
@@ -27,3 +28,4 @@ function read(key: keyof RuntimeConfig, buildTime: string | undefined, fallback 
 
 export const ANALYTICS_GA4_ID = read("ANALYTICS_GA4_ID", import.meta.env.VITE_ANALYTICS_GA4_ID);
 export const ANALYTICS_BAIDU_ID = read("ANALYTICS_BAIDU_ID", import.meta.env.VITE_ANALYTICS_BAIDU_ID);
+export const AI_BASE_URL = read("AI_BASE_URL", import.meta.env.VITE_AI_BASE_URL, "https://api.smartxai.cn").replace(/\/+$/, "");

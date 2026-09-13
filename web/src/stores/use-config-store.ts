@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
 
+import { AI_BASE_URL } from "@/constant/runtime-config";
 import i18n from "@/i18n";
 
 export type ApiCallFormat = "openai" | "gemini";
@@ -63,7 +64,7 @@ export type WebdavSyncConfig = {
     directory: string;
     lastSyncedAt: string;
 };
-export type ConfigTabKey = "channels" | "local-proxy" | "preferences" | "prompt-sources" | "webdav" | "local-storage";
+export type ConfigTabKey = "channels" | "preferences" | "prompt-sources" | "webdav" | "local-storage";
 
 export type ChannelCredentialsImportResult = {
     status: "created" | "updated" | "missing-base-url" | "invalid-base-url";
@@ -72,21 +73,19 @@ export type ChannelCredentialsImportResult = {
 
 export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
-const OPENAI_BASE_URL = "https://api.openai.com";
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
 export const LOCAL_PROXY_PACKAGE = "@basketikun/canvas-proxy";
 export const DEFAULT_LOCAL_PROXY_URL = "http://127.0.0.1:23210";
 
 export const defaultConfig: AiConfig = {
     channelMode: "local",
-    baseUrl: OPENAI_BASE_URL,
+    baseUrl: AI_BASE_URL,
     apiKey: "",
     apiFormat: "openai",
     channels: [
         {
             id: "default",
             name: i18n.t("config.channels.defaultName"),
-            baseUrl: OPENAI_BASE_URL,
+            baseUrl: AI_BASE_URL,
             apiKey: "",
             apiFormat: "openai",
             models: [
@@ -271,7 +270,8 @@ export const useConfigStore = create<ConfigStore>()(
                         videoWatermark: config.videoWatermark || "false",
                         videoMode: config.videoMode === "reference" ? "reference" : "frames",
                         canvasImageCount: config.canvasImageCount || "3",
-                        proxyEnabled: Boolean(config.proxyEnabled),
+                        baseUrl: AI_BASE_URL,
+                        proxyEnabled: false,
                         proxyUrl: config.proxyUrl || DEFAULT_LOCAL_PROXY_URL,
                     },
                 };
@@ -305,7 +305,7 @@ export function createModelChannel(channel?: Partial<ModelChannel>): ModelChanne
     return {
         id: channel?.id?.trim() || nanoid(),
         name: channel?.name?.trim() || i18n.t("config.channels.newName"),
-        baseUrl: channel?.baseUrl?.trim() || defaultBaseUrlForApiFormat(apiFormat),
+        baseUrl: AI_BASE_URL,
         apiKey: channel?.apiKey || "",
         apiFormat,
         models: normalizeChannelModels(channel?.models),
@@ -317,12 +317,11 @@ export function upsertChannelCredentials(
     input: { baseUrl?: string | null; apiKey?: string | null },
 ): ChannelCredentialsImportResult & { config: AiConfig } {
     const rawBaseUrl = input.baseUrl?.trim() || "";
-    if (!rawBaseUrl) return { status: "missing-base-url", config };
-    if (!isHttpBaseUrl(rawBaseUrl)) return { status: "invalid-base-url", config };
+    if (rawBaseUrl && !isHttpBaseUrl(rawBaseUrl)) return { status: "invalid-base-url", config };
 
-    const baseUrl = normalizeImportedBaseUrl(rawBaseUrl);
+    const baseUrl = AI_BASE_URL;
     const apiKey = input.apiKey?.trim() || "";
-    const matchingIndex = config.channels.findIndex((channel) => normalizedBaseUrlKey(channel.baseUrl) === normalizedBaseUrlKey(baseUrl));
+    const matchingIndex = config.channels.findIndex((channel) => channel.baseUrl === baseUrl);
 
     if (matchingIndex >= 0) {
         const existing = config.channels[matchingIndex];
@@ -351,24 +350,6 @@ function isHttpBaseUrl(baseUrl: string) {
     } catch {
         return false;
     }
-}
-
-function normalizedBaseUrlKey(baseUrl: string) {
-    try {
-        return stripTrailingApiVersion(normalizeImportedBaseUrl(baseUrl));
-    } catch {
-        return stripTrailingApiVersion(baseUrl.trim().replace(/\/+$/, ""));
-    }
-}
-
-function normalizeImportedBaseUrl(baseUrl: string) {
-    const url = new URL(baseUrl.trim());
-    url.hash = "";
-    return url.toString().replace(/\/+$/, "");
-}
-
-function stripTrailingApiVersion(baseUrl: string) {
-    return baseUrl.replace(/\/v1$/i, "");
 }
 
 function importedChannelName(baseUrl: string) {
@@ -429,7 +410,7 @@ export function resolveModelRequestConfig(config: AiConfig, value: string) {
     return {
         ...config,
         model: modelOptionName(value || config.model),
-        baseUrl: channel.baseUrl,
+        baseUrl: AI_BASE_URL,
         apiKey: channel.apiKey,
         apiFormat: channel.apiFormat,
     };
@@ -460,9 +441,8 @@ function normalizeChannels(config: AiConfig) {
     return channels;
 }
 
-export function defaultBaseUrlForApiFormat(apiFormat: ApiCallFormat) {
-    if (apiFormat === "gemini") return GEMINI_BASE_URL;
-    return OPENAI_BASE_URL;
+export function defaultBaseUrlForApiFormat(_apiFormat: ApiCallFormat) {
+    return AI_BASE_URL;
 }
 
 function normalizeApiFormat(apiFormat: unknown): ApiCallFormat {

@@ -51,6 +51,15 @@ docker compose -f docker-compose.local.yml up -d --build
 
 当前主应用镜像只启动 Next.js。画布、我的素材、生成记录和 AI API Key 默认保存在浏览器本地；第三方提示词由浏览器前端直连拉取，不需要额外挂载数据目录。
 
+## AI 服务地址
+
+主应用通过 `AI_BASE_URL` 运行期变量锁定所有渠道的接口地址，默认为 `https://api.smartxai.cn`。前端渠道配置中只读展示该地址，用户无法修改。
+
+```yaml
+environment:
+  AI_BASE_URL: https://api.smartxai.cn
+```
+
 ## 统计分析（可选）
 
 项目**默认不接入任何统计**：不设置下列环境变量时，页面不会加载任何统计脚本，也不会发送任何外部请求。你在自己的部署上想查看流量时，设置对应环境变量即可，无需修改代码或重新构建镜像——镜像启动时会据此生成运行期配置。
