@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3100:3000"
     environment:
       AI_BASE_URL: https://api.smartxai.cn
     restart: unless-stopped
